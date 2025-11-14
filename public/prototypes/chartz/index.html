@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liquidity Visualizer</title>
+  <style>
+    body {
+      font-family: Inter, sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 1rem;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    button.active {
+      background: #111827;
+      color: white;
+      border-color: #111827;
+    }
+    iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+      display: none;
+    }
+    iframe.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button id="tabGauge" class="active">Gauge View</button>
+    <button id="tabDensity">Density View</button>
+  </header>
+
+  <iframe id="gaugeFrame" src="gauge.html?v=3" class="active"></iframe>
+  <iframe id="densityFrame" src="density.html?v=3"></iframe>
+
+  <script>
+    const tabs = {
+      gauge: document.getElementById("tabGauge"),
+      density: document.getElementById("tabDensity"),
+    };
+    const frames = {
+      gauge: document.getElementById("gaugeFrame"),
+      density: document.getElementById("densityFrame"),
+    };
+
+    // Handle tab switching
+    function activate(view) {
+      Object.values(tabs).forEach(b => b.classList.remove("active"));
+      Object.values(frames).forEach(f => f.classList.remove("active"));
+      tabs[view].classList.add("active");
+      frames[view].classList.add("active");
+    }
+
+    tabs.gauge.addEventListener("click", () => activate("gauge"));
+    tabs.density.addEventListener("click", () => activate("density"));
+
+    // Shared state handling
+    let sharedState = { priceRange: null, depositMultiplier: null };
+
+    // Listen for state updates from children
+    window.addEventListener("message", e => {
+      if (e.data.type === "stateUpdate") {
+        sharedState = e.data.state;
+        // broadcast to both iframes
+        Object.values(frames).forEach(f => f.contentWindow.postMessage({ type: "syncState", state: sharedState }, "*"));
+      }
+    });
+  </script>
+</body>
+</html>

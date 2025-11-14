@@ -1,37 +1,18 @@
 import React from 'react'
 import { useParams, Link } from 'react-router-dom'
-import DraggablePriceInput from '@/components/draggable-price-input'
-import FeedV3 from '@/prototypes/FeedV3'
-import Searchbox from '@/prototypes/Searchbox'
-
-const components: Record<string, { name: string; product: string; component?: React.ComponentType }> = {
-  'draggable-price-input': {
-    name: 'Draggable Price Input',
-    product: 'DEX',
-    component: DraggablePriceInput,
-  },
-  'feed-v3': {
-    name: 'Feed V3',
-    product: 'Feed',
-    component: FeedV3,
-  },
-  'searchbox': {
-    name: 'Searchbox',
-    product: 'Feed',
-    component: Searchbox,
-  },
-}
+import { componentRegistry } from '@/config/components'
 
 export default function ComponentPage() {
   const { id } = useParams<{ id: string }>()
   const componentId = id || ''
-  const componentData = components[componentId]
+  const componentData = componentRegistry[componentId]
 
   if (!componentData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-gray-900 mb-2">Component not found</h1>
+          <p className="text-gray-600 mb-4">Component ID: {componentId}</p>
           <Link to="/" className="text-blue-600 hover:text-blue-800">Go back to index</Link>
         </div>
       </div>
@@ -40,14 +21,41 @@ export default function ComponentPage() {
 
   const componentName = componentData.name
   const componentProduct = componentData.product
+  const Component = componentData.component
+  const isFullPage = componentData.isFullPage ?? false
 
-  // Full-page components that should render without wrapper constraints
-  const isFullPageComponent = componentId === 'feed-v3' || componentId === 'searchbox'
+  // Render component with error boundary
+  const renderComponent = () => {
+    if (!Component) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center text-gray-500">
+            <p>Component not available</p>
+          </div>
+        </div>
+      )
+    }
 
-  if (isFullPageComponent) {
+    try {
+      return <Component />
+    } catch (error) {
+      console.error('Error rendering component:', error)
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center text-red-500">
+            <p>Error rendering component</p>
+            <p className="text-sm mt-2">{String(error)}</p>
+          </div>
+        </div>
+      )
+    }
+  }
+
+  // Full-page components render without wrapper
+  if (isFullPage) {
     return (
       <>
-        {/* Minimal floating info bar - like Next.js error pill */}
+        {/* Minimal floating info bar */}
         <div className="fixed top-4 left-4 z-50">
           <div className="bg-white border border-gray-200 rounded-full shadow-lg px-4 py-2 flex items-center gap-3 text-sm">
             <Link
@@ -69,18 +77,16 @@ export default function ComponentPage() {
           </div>
         </div>
 
-        {/* Full-screen prototype display - no wrapper constraints */}
-        {componentData.component && (() => {
-          const Component = componentData.component
-          return <Component />
-        })()}
+        {/* Full-screen component */}
+        {renderComponent()}
       </>
     )
   }
 
+  // Regular components with wrapper
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      {/* Minimal floating info bar - like Next.js error pill */}
+      {/* Minimal floating info bar */}
       <div className="fixed top-4 left-4 z-50">
         <div className="bg-white border border-gray-200 rounded-full shadow-lg px-4 py-2 flex items-center gap-3 text-sm">
           <Link
@@ -102,12 +108,9 @@ export default function ComponentPage() {
         </div>
       </div>
 
-      {/* Full-screen prototype display */}
+      {/* Component display */}
       <div className="w-full h-screen pt-16">
-        {componentData.component && (() => {
-          const Component = componentData.component
-          return <Component />
-        })()}
+        {renderComponent()}
       </div>
     </div>
   )

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gauge v4 — Normal Liquidity + Radial Handles</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: #fafafa;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 24px;
+      width: 100%;
+    }
+    
+    h1 {
+      font-size: 1.125rem;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.8125rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .subtitle span {
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    canvas {
+      width: 100%;
+      border-radius: 8px;
+      display: block;
+      background: #fafafa;
+      cursor: grab;
+    }
+    
+    canvas:active { cursor: grabbing; }
+    
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .metric {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    
+    .metric.highlight {
+      background: #fef3f2;
+      border-color: #fecaca;
+    }
+    
+    .metric-label {
+      font-size: 0.6875rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      font-weight: 500;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+    
+    .metric.highlight .metric-value {
+      color: #dc2626;
+    }
+    
+    .apr-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      background: white;
+      margin-left: 6px;
+      transition: all 0.3s ease;
+    }
+    
+    .apr-indicator.active {
+      border-color: #10b981;
+      background: #34d399;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; gap: 16px; max-width: 1400px; margin: 0 auto;">
+    <!-- Left side - Chart -->
+    <div class="container" style="flex: 1;">
+      <h1>Set price range</h1>
+      <p class="subtitle">
+        <span>Drag handles</span> to adjust price range
+      </p>
+      
+      <canvas id="gaugeV4" width="1000" height="400"></canvas>
+      
+      <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Min Price</div>
+        <div class="metric-value" id="minPrice">3165.29</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="minPriceUsd">$3,165.29</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Balance</div>
+        <div class="metric-value" id="balancePercent">100%</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="balanceUsd">$5,958</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Max Price</div>
+        <div class="metric-value" id="maxPrice">3261.68</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="maxPriceUsd">$3,261.68</div>
+      </div>
+      <div class="metric highlight">
+        <div class="metric-label">
+          Estimated APR
+          <span class="apr-indicator" id="aprIndicator"></span>
+        </div>
+        <div class="metric-value" id="apr">127.20%</div>
+        <div style="font-size: 0.75rem; color: #666; margin-top: 4px;" id="aprStatus">○ Out of range</div>
+      </div>
+    </div>
+    </div>
+    
+    <!-- Right side - Deposit Inputs -->
+    <div style="width: 360px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1rem; font-weight: 600; color: #111827;">Add deposit amount</h3>
+        <div style="font-size: 0.75rem; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 6px;">1.5%</div>
+      </div>
+      
+      <!-- WETH Input -->
+      <div style="border: 1px solid #e5e7eb; background: white; border-radius: 10px; padding: 14px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; background: #1f2937; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">Ξ</div>
+            <span style="font-weight: 600; font-size: 0.9375rem; color: #111827;">WETH</span>
+          </div>
+          <input 
+            type="number" 
+            id="wethInput"
+            value="1.00"
+            style="font-size: 1.375rem; font-weight: 700; text-align: right; background: transparent; border: none; outline: none; width: 140px; color: #111827;"
+          />
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 4px;">
+            <button onclick="setMultiplier(0)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">0</button>
+            <button onclick="setMultiplier(0.5)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">50%</button>
+            <button onclick="setMultiplier(1)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">MAX</button>
+          </div>
+          <span style="font-size: 0.8125rem; color: #9ca3af; font-weight: 500;" id="wethUsd">$3,210</span>
+        </div>
+      </div>
+      
+      <!-- Plus button -->
+      <div style="display: flex; justify-content: center; margin: 12px 0;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #6b7280;">+</div>
+      </div>
+      
+      <!-- USDT Input -->
+      <div style="border: 1px solid #e5e7eb; background: white; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; background: #14b8a6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">₮</div>
+            <span style="font-weight: 600; font-size: 0.9375rem; color: #111827;">USDT</span>
+          </div>
+          <input 
+            type="number" 
+            id="usdtInput"
+            value="2740.31"
+            style="font-size: 1.375rem; font-weight: 700; text-align: right; background: transparent; border: none; outline: none; width: 140px; color: #111827;"
+          />
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 4px;">
+            <button onclick="setMultiplier(0)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">0</button>
+            <button onclick="setMultiplier(0.5)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">50%</button>
+            <button onclick="setMultiplier(1)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">MAX</button>
+          </div>
+          <span style="font-size: 0.8125rem; color: #9ca3af; font-weight: 500;" id="usdtUsd">$2,740</span>
+        </div>
+      </div>
+      
+      <!-- Summary -->
+      <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+          <span style="font-size: 0.875rem; color: #6b7280;">Total deposit</span>
+          <span style="font-weight: 700; font-size: 1.125rem;" id="totalDepositSide">$5,958</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.875rem; color: #6b7280;">Deposit ratio</span>
+          <div style="display: flex; gap: 8px;">
+            <span style="font-size: 0.875rem; font-weight: 500;">Ξ 54.01%</span>
+            <span style="font-size: 0.875rem; font-weight: 500; color: #14b8a6;">₮ 45.99%</span>
+          </div>
+        </div>
+      </div>
+      
+      <button style="width: 100%; background: #10b981; color: white; font-weight: 600; padding: 14px; border-radius: 10px; border: none; font-size: 0.9375rem; cursor: pointer; transition: background 0.2s;">
+        Add Liquidity
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ======= Base Data =======
+    let priceRange = { min: 3165.29, max: 3261.68 };
+    let depositMultiplier = 1.0;
+    const currentPrice = 3210;
+    const viewport = { priceMin: 2000, priceMax: 4500 };
+    const baseWeth = 1;
+    const baseUsdt = 2740.31;
+
+    // ======= Canvas Setup =======
+    const canvas = document.getElementById("gaugeV4");
+    const ctx = canvas.getContext("2d");
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    // ======= Deposit Functions =======
+    function calculateBalance() {
+      const weth = baseWeth * depositMultiplier;
+      const usdt = baseUsdt * depositMultiplier;
+      return weth * currentPrice + usdt;
+    }
+
+    function calculateAPR() {
+      const rangeWidth = priceRange.max - priceRange.min;
+      const rangePercentage = (rangeWidth / currentPrice) * 100;
+      const baseAPR = 127.20;
+      const concentrationMultiplier = Math.max(0.3, Math.min(3.0, 10 / rangePercentage));
+      const apr = baseAPR * concentrationMultiplier;
+      return Math.min(350, apr);
+    }
+
+    function updateInputs() {
+      const weth = (baseWeth * depositMultiplier).toFixed(2);
+      const usdt = (baseUsdt * depositMultiplier).toFixed(2);
+      document.getElementById('wethInput').value = weth;
+      document.getElementById('usdtInput').value = usdt;
+      document.getElementById('wethUsd').textContent = '$' + (weth * currentPrice).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('usdtUsd').textContent = '$' + parseFloat(usdt).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('totalDepositSide').textContent = '$' + calculateBalance().toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function setMultiplier(value) {
+      depositMultiplier = value;
+      updateInputs();
+    }
+
+    function connectInputs() {
+      const wethInput = document.getElementById('wethInput');
+      const usdtInput = document.getElementById('usdtInput');
+      
+      wethInput.addEventListener('input', (e) => {
+        const newValue = parseFloat(e.target.value) || 0;
+        const newMultiplier = newValue / baseWeth;
+        depositMultiplier = Math.max(0.01, newMultiplier);
+        updateInputs();
+      });
+      
+      usdtInput.addEventListener('input', (e) => {
+        const newValue = parseFloat(e.target.value) || 0;
+        const newMultiplier = newValue / baseUsdt;
+        depositMultiplier = Math.max(0.01, newMultiplier);
+        updateInputs();
+      });
+    }
+    connectInputs();
+
+    // ======= Gaussian density =======
+    function normalDensity(x, mean, sd) {
+      return Math.exp(-0.5 * Math.pow((x - mean) / sd, 2));
+    }
+
+    function generateDensity(samples, mean, sd) {
+      const points = [];
+      for (let i = 0; i < samples; i++) {
+        const price = viewport.priceMin + (i / (samples - 1)) * (viewport.priceMax - viewport.priceMin);
+        const density = normalDensity(price, mean, sd);
+        points.push({ price, density });
+      }
+      return points;
+    }
+
+    // ======= Mapping Helpers =======
+    function priceToAngle(price) {
+      const norm = (price - viewport.priceMin) / (viewport.priceMax - viewport.priceMin);
+      return -90 + norm * 180; // -90 = left, +90 = right
+    }
+    function angleToPrice(angle) {
+      const norm = (angle + 90) / 180;
+      return viewport.priceMin + norm * (viewport.priceMax - viewport.priceMin);
+    }
+    function angleToPos(angle, r, cx, cy) {
+      const rad = (angle - 90) * Math.PI / 180;
+      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+
+    // ======= Interaction =======
+    let isDragging = null;
+    function posToAngle(x, y, cx, cy) {
+      const dx = x - cx;
+      const dy = y - cy;
+      let angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+      if (angle > 180) angle -= 360;
+      return Math.max(-90, Math.min(90, angle));
+    }
+
+    canvas.addEventListener("mousedown", e => {
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height - 30;
+      const r = Math.min(rect.width * 0.4, rect.height * 0.75);
+      const minA = priceToAngle(priceRange.min);
+      const maxA = priceToAngle(priceRange.max);
+      const minP = angleToPos(minA, r, cx, cy);
+      const maxP = angleToPos(maxA, r, cx, cy);
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const dMin = Math.hypot(x - minP.x, y - minP.y);
+      const dMax = Math.hypot(x - maxP.x, y - maxP.y);
+      if (dMin < 20) isDragging = "left";
+      else if (dMax < 20) isDragging = "right";
+    });
+
+    canvas.addEventListener("mousemove", e => {
+      if (!isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height - 30;
+      const angle = posToAngle(e.clientX - rect.left, e.clientY - rect.top, cx, cy);
+      const price = angleToPrice(angle);
+      if (isDragging === "left") priceRange.min = Math.max(viewport.priceMin, Math.min(price, priceRange.max - 10));
+      if (isDragging === "right") priceRange.max = Math.min(viewport.priceMax, Math.max(price, priceRange.min + 10));
+    });
+    ["mouseup", "mouseleave"].forEach(ev => canvas.addEventListener(ev, () => (isDragging = null)));
+
+    // ======= Rendering =======
+    function render() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h - 30;
+      const radius = Math.min(w * 0.4, h * 0.75);
+      const thickness = 40;
+
+      // --- Draw Gaussian background (liquidity density) ---
+      const samples = 120;
+      const density = generateDensity(samples, currentPrice, 80);
+      const maxD = Math.max(...density.map(p => p.density));
+      for (let i = 0; i < density.length; i++) {
+        const angle = priceToAngle(density[i].price);
+        const d = density[i].density / maxD;
+        const barLength = d * 40; // amplitude
+        const rad = (angle - 90) * Math.PI / 180;
+        const outer = radius + thickness / 2;
+        const inner = outer - barLength;
+        const inRange = density[i].price >= priceRange.min && density[i].price <= priceRange.max;
+        ctx.beginPath();
+        ctx.moveTo(cx + outer * Math.cos(rad), cy + outer * Math.sin(rad));
+        ctx.lineTo(cx + inner * Math.cos(rad), cy + inner * Math.sin(rad));
+        ctx.strokeStyle = inRange ? "rgba(255,120,60,0.5)" : "rgba(200,200,200,0.15)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // --- Base arc background ---
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(230,230,230,0.6)";
+      ctx.lineWidth = thickness;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // --- Active range arc ---
+      const minA = priceToAngle(priceRange.min);
+      const maxA = priceToAngle(priceRange.max);
+      const startA = Math.PI + (minA + 90) * Math.PI / 180;
+      const endA = Math.PI + (maxA + 90) * Math.PI / 180;
+      const grad = ctx.createLinearGradient(cx - radius, cy, cx + radius, cy);
+      grad.addColorStop(0, "rgba(255,120,60,0.6)");
+      grad.addColorStop(1, "rgba(255,150,80,0.6)");
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startA, endA);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = thickness;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // --- Current price line ---
+      const currentA = priceToAngle(currentPrice);
+      const rad = (currentA - 90) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + (radius + thickness / 2 + 10) * Math.cos(rad), cy + (radius + thickness / 2 + 10) * Math.sin(rad));
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "rgba(0,0,0,0.3)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // --- Handles ---
+      function drawHandle(angle, active) {
+        const pos = angleToPos(angle, radius, cx, cy);
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, active ? 12 : 10, 0, Math.PI * 2);
+        ctx.fillStyle = active ? "#6b7280" : "#9ca3af";
+        ctx.fill();
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      drawHandle(minA, isDragging === "left");
+      drawHandle(maxA, isDragging === "right");
+
+      // ======= UI Updates =======
+      const balance = calculateBalance();
+      const apr = calculateAPR();
+      const isInRange = currentPrice >= priceRange.min && currentPrice <= priceRange.max;
+
+      document.getElementById('minPrice').textContent = priceRange.min.toFixed(2);
+      document.getElementById('minPriceUsd').textContent = '$' + priceRange.min.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('maxPrice').textContent = priceRange.max.toFixed(2);
+      document.getElementById('maxPriceUsd').textContent = '$' + priceRange.max.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('balancePercent').textContent = (depositMultiplier * 100).toFixed(0) + '%';
+      document.getElementById('balanceUsd').textContent = '$' + balance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('apr').textContent = apr.toFixed(2) + '%';
+
+      updateInputs();
+
+      const indicator = document.getElementById('aprIndicator');
+      const status = document.getElementById('aprStatus');
+      if (isInRange) {
+        indicator.classList.add('active');
+        status.textContent = '✓ In range';
+        status.style.color = '#10b981';
+      } else {
+        indicator.classList.remove('active');
+        status.textContent = '○ Out of range';
+        status.style.color = '#666';
+      }
+    }
+
+    // ======= Animation Loop =======
+    function animate() {
+      render();
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>

@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Muscle Chart Prototype</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      background: #fafafa;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 24px;
+      width: 100%;
+    }
+    
+    h1 {
+      font-size: 1.125rem;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.8125rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .subtitle span {
+      font-weight: 500;
+      color: #374151;
+    }
+    
+    canvas {
+      width: 100%;
+      border-radius: 8px;
+      display: block;
+      background: #fafafa;
+    }
+    
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .metric {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    
+    .metric.highlight {
+      background: #fef3f2;
+      border-color: #fecaca;
+    }
+    
+    .metric-label {
+      font-size: 0.6875rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      font-weight: 500;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+    
+    .metric.highlight .metric-value {
+      color: #dc2626;
+    }
+    
+    .apr-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      background: white;
+      margin-left: 6px;
+      transition: all 0.3s ease;
+    }
+    
+    .apr-indicator.active {
+      border-color: #10b981;
+      background: #34d399;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; gap: 16px; max-width: 1400px; margin: 0 auto;">
+    <!-- Left side - Chart -->
+    <div class="container" style="flex: 1;">
+      <h1>Set price range</h1>
+      <p class="subtitle">
+        <span>Drag handles</span> to adjust price range • 
+        <span>Drag green circle</span> to adjust deposit amounts
+      </p>
+      
+      <canvas id="chart" width="1000" height="400"></canvas>
+      
+      <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Min Price</div>
+        <div class="metric-value" id="minPrice">3165.29</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="minPriceUsd">$3,165.29</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Balance</div>
+        <div class="metric-value" id="balancePercent">100%</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="balanceUsd">$5,958</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Max Price</div>
+        <div class="metric-value" id="maxPrice">3261.68</div>
+        <div style="font-size: 0.75rem; color: #999; margin-top: 4px;" id="maxPriceUsd">$3,261.68</div>
+      </div>
+      <div class="metric highlight">
+        <div class="metric-label">
+          Estimated APR
+          <span class="apr-indicator" id="aprIndicator"></span>
+        </div>
+        <div class="metric-value" id="apr">127.20%</div>
+        <div style="font-size: 0.75rem; color: #666; margin-top: 4px;" id="aprStatus">○ Out of range</div>
+      </div>
+    </div>
+    </div>
+    
+    <!-- Right side - Deposit Inputs -->
+    <div style="width: 360px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1rem; font-weight: 600; color: #111827;">Add deposit amount</h3>
+        <div style="font-size: 0.75rem; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 6px;">1.5%</div>
+      </div>
+      
+      <!-- UETH Input -->
+      <div style="border: 1px solid #e5e7eb; background: white; border-radius: 10px; padding: 14px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; background: #1f2937; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">Ξ</div>
+            <span style="font-weight: 600; font-size: 0.9375rem; color: #111827;">WETH</span>
+          </div>
+          <input 
+            type="number" 
+            id="uethInput"
+            value="1.00"
+            style="font-size: 1.375rem; font-weight: 700; text-align: right; background: transparent; border: none; outline: none; width: 140px; color: #111827;"
+          />
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 4px;">
+            <button onclick="setMultiplier(0)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">0</button>
+            <button onclick="setMultiplier(0.5)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">50%</button>
+            <button onclick="setMultiplier(1)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">MAX</button>
+          </div>
+          <span style="font-size: 0.8125rem; color: #9ca3af; font-weight: 500;" id="uethUsd">$3,210</span>
+        </div>
+      </div>
+      
+      <!-- Plus button -->
+      <div style="display: flex; justify-content: center; margin: 12px 0;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #6b7280;">+</div>
+      </div>
+      
+      <!-- USDT0 Input -->
+      <div style="border: 1px solid #e5e7eb; background: white; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; background: #14b8a6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">₮</div>
+            <span style="font-weight: 600; font-size: 0.9375rem; color: #111827;">USDT</span>
+          </div>
+          <input 
+            type="number" 
+            id="usdtInput"
+            value="2740.31"
+            style="font-size: 1.375rem; font-weight: 700; text-align: right; background: transparent; border: none; outline: none; width: 140px; color: #111827;"
+          />
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; gap: 4px;">
+            <button onclick="setMultiplier(0)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">0</button>
+            <button onclick="setMultiplier(0.5)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">50%</button>
+            <button onclick="setMultiplier(1)" style="font-size: 0.6875rem; padding: 3px 10px; background: #f9fafb; border-radius: 5px; border: 1px solid #e5e7eb; cursor: pointer; color: #6b7280; font-weight: 500;">MAX</button>
+          </div>
+          <span style="font-size: 0.8125rem; color: #9ca3af; font-weight: 500;" id="usdtUsd">$2,740</span>
+        </div>
+      </div>
+      
+      <!-- Summary -->
+      <div style="border-top: 1px solid #e5e7eb; padding-top: 16px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+          <span style="font-size: 0.875rem; color: #6b7280;">Total deposit</span>
+          <span style="font-weight: 700; font-size: 1.125rem;" id="totalDepositSide">$5,958</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.875rem; color: #6b7280;">Deposit ratio</span>
+          <div style="display: flex; gap: 8px;">
+            <span style="font-size: 0.875rem; font-weight: 500;">Ξ 54.01%</span>
+            <span style="font-size: 0.875rem; font-weight: 500; color: #14b8a6;">₮ 45.99%</span>
+          </div>
+        </div>
+      </div>
+      
+      <button style="width: 100%; background: #10b981; color: white; font-weight: 600; padding: 14px; border-radius: 10px; border: none; font-size: 0.9375rem; cursor: pointer; transition: background 0.2s;">
+        Add Liquidity
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let priceRange = { min: 3165.29, max: 3261.68 };
+    let depositMultiplier = 1.0; // 0.5 to 2.0
+    let isDragging = null;
+    let hovered = null;
+    let dragStartY = 0;
+    let dragStartMultiplier = 1.0;
+    
+    const currentPrice = 3210;
+    const viewport = { priceMin: 2000, priceMax: 4500 };
+    
+    // Base deposit amounts
+    const baseUeth = 1;
+    const baseUsdt = 2740.31;
+    
+    // Shared state via postMessage
+    function sendStateUpdate(){
+      if(window.parent!==window){
+        window.parent.postMessage({type:'stateUpdate',state:{priceRange,depositMultiplier}},'*');
+      }
+    }
+    window.addEventListener('message',e=>{
+      if(e.data.type==='syncState'&&e.data.state){
+        if(e.data.state.priceRange)priceRange=e.data.state.priceRange;
+        if(e.data.state.depositMultiplier!==undefined)depositMultiplier=e.data.state.depositMultiplier;
+      }
+    });
+    
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    
+    // Calculate dynamic APR based on range width
+    function calculateAPR() {
+      const rangeWidth = priceRange.max - priceRange.min;
+      const rangePercentage = (rangeWidth / currentPrice) * 100;
+      
+      // APR calculation:
+      // - Tighter range (< 5%) = Very high APR (150-300%)
+      // - Medium range (5-15%) = High APR (80-150%)
+      // - Wide range (> 15%) = Lower APR (20-80%)
+      
+      const baseAPR = 127.20; // Base pool APR
+      const concentrationMultiplier = Math.max(0.3, Math.min(3.0, 10 / rangePercentage));
+      const apr = baseAPR * concentrationMultiplier;
+      
+      return Math.min(350, apr); // Cap at 350%
+    }
+    
+    // Calculate total balance
+    function calculateBalance() {
+      const uethAmount = baseUeth * depositMultiplier;
+      const usdtAmount = baseUsdt * depositMultiplier;
+      return uethAmount * currentPrice + usdtAmount;
+    }
+    
+    // Update right-side inputs
+    function updateInputs() {
+      const uethAmount = (baseUeth * depositMultiplier).toFixed(2);
+      const usdtAmount = (baseUsdt * depositMultiplier).toFixed(2);
+      
+      document.getElementById('uethInput').value = uethAmount;
+      document.getElementById('usdtInput').value = usdtAmount;
+      document.getElementById('uethUsd').textContent = '$' + (uethAmount * currentPrice).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('usdtUsd').textContent = '$' + parseFloat(usdtAmount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      document.getElementById('totalDepositSide').textContent = '$' + calculateBalance().toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    
+    // Set multiplier from buttons
+    function setMultiplier(value) {
+      depositMultiplier = value;
+      updateInputs();
+      sendStateUpdate();
+    }
+    
+    // Connect inputs - make them editable and sync with chart
+    function connectInputs() {
+      const uethInput = document.getElementById('uethInput');
+      const usdtInput = document.getElementById('usdtInput');
+      
+      uethInput.addEventListener('input', (e) => {
+        const newValue = parseFloat(e.target.value) || 0;
+        const newMultiplier = newValue / baseUeth;
+        depositMultiplier = Math.max(0.01, newMultiplier); // No upper limit!
+        updateInputs(); // Update other fields
+        sendStateUpdate();
+      });
+      
+      usdtInput.addEventListener('input', (e) => {
+        const newValue = parseFloat(e.target.value) || 0;
+        const newMultiplier = newValue / baseUsdt;
+        depositMultiplier = Math.max(0.01, newMultiplier); // No upper limit!
+        updateInputs(); // Update other fields
+        sendStateUpdate();
+      });
+    }
+    
+    // Initialize input connections after DOM is ready
+    connectInputs();
+    
+    // Coordinate transforms
+    const priceToX = (price, width) => 
+      ((price - viewport.priceMin) / (viewport.priceMax - viewport.priceMin)) * width;
+    
+    const xToPrice = (x, width) =>
+      (x / width) * (viewport.priceMax - viewport.priceMin) + viewport.priceMin;
+    
+    // Generate organic liquidity curve (smooth, dynamic)
+    // Use seeded randomness so curves don't flicker
+    function seededRandom(seed) {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    }
+    
+    function generateLiquidityCurve(width, height) {
+      const points = [];
+      const samples = 120; // More samples for ultra-smooth curves
+      
+      for (let i = 0; i <= samples; i++) {
+        const x = (i / samples) * width;
+        const price = xToPrice(x, width);
+        
+        // Bell curve centered on current price
+        const distanceFromCurrent = Math.abs(price - currentPrice);
+        const bellCurve = Math.exp(-(distanceFromCurrent ** 2) / 800000);
+        
+        // Add organic waves for dynamic feel (like code-v1.tsx)
+        const wave1 = Math.sin(i * 0.12) * 0.1;
+        const wave2 = Math.cos(i * 0.08) * 0.06;
+        const wave3 = Math.sin(i * 0.25) * 0.04;
+        const noise = seededRandom(i * 123.456) * 0.02; // Consistent noise
+        
+        const normalizedHeight = (bellCurve + wave1 + wave2 + wave3 + noise) * 100;
+        
+        points.push({ 
+          x, 
+          height: Math.max(10, normalizedHeight) 
+        });
+      }
+      
+      return points;
+    }
+    
+    // Convert height data to Y coordinates
+    function intensityToHeight(intensity, height) {
+      return (intensity / 100) * (height * 0.7);
+    }
+    
+    // Draw handle - highly visible with bright colors
+    function drawHandle(x, y, type, size) {
+      const isHovered = hovered === type;
+      const isDragged = isDragging === type;
+      
+      ctx.save();
+      
+      const handleWidth = size;
+      const handleHeight = 50; // Make MUCH taller for better visibility
+      
+      // SUPER VISIBLE - bright colors, NO SHADOW to avoid interference
+      ctx.fillStyle = isDragged ? '#ef4444' : isHovered ? '#f59e0b' : '#3b82f6'; // Red/Orange/Blue
+      ctx.strokeStyle = '#000000'; // Black border always
+      ctx.lineWidth = isDragged ? 5 : isHovered ? 4 : 4;
+      
+      // NO SHADOW - it was causing the handles to disappear
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Draw rounded rectangle
+      const cornerRadius = 8;
+      const left = x - handleWidth/2;
+      const top = y;
+      
+      ctx.beginPath();
+      ctx.moveTo(left + cornerRadius, top);
+      ctx.lineTo(left + handleWidth - cornerRadius, top);
+      ctx.quadraticCurveTo(left + handleWidth, top, left + handleWidth, top + cornerRadius);
+      ctx.lineTo(left + handleWidth, top + handleHeight - cornerRadius);
+      ctx.quadraticCurveTo(left + handleWidth, top + handleHeight, left + handleWidth - cornerRadius, top + handleHeight);
+      ctx.lineTo(left + cornerRadius, top + handleHeight);
+      ctx.quadraticCurveTo(left, top + handleHeight, left, top + handleHeight - cornerRadius);
+      ctx.lineTo(left, top + cornerRadius);
+      ctx.quadraticCurveTo(left, top, left + cornerRadius, top);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Handle grip lines - very visible (thicker and darker)
+      ctx.shadowBlur = 0; // Reset shadow for grip lines
+      ctx.shadowColor = 'transparent'; // Completely reset shadow
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.fillStyle = '#111827'; // Darker for better visibility
+      if (type === 'left' || type === 'right') {
+        [-14, 0, 14].forEach(offset => {
+          ctx.fillRect(x + offset - 3, y + 14, 6, 16); // Thicker and taller grip lines
+        });
+      }
+      
+      ctx.restore();
+      
+      // CRITICAL: Reset ALL shadow properties after restore to prevent interference
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
+    
+    // Main render
+    function render() {
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+      
+      // Generate histogram data
+      const histogramData = generateLiquidityCurve(width, height);
+      
+      // Draw base fill (market liquidity)
+      ctx.fillStyle = 'rgba(255, 180, 120, 0.12)';
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+      histogramData.forEach((d, i) => {
+        const h = intensityToHeight(d.height, height);
+        const y = height - h;
+        if (i === 0) ctx.lineTo(d.x, y);
+        else ctx.lineTo(d.x, y);
+      });
+      ctx.lineTo(width, height);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw contour layers (muscle effect) - smooth lines
+      for (let layer = 0; layer < 3; layer++) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(255, ${150 - layer * 25}, ${100 - layer * 20}, ${0.35 - layer * 0.1})`;
+        ctx.lineWidth = 2.5 - layer * 0.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        histogramData.forEach((d, i) => {
+          const h = intensityToHeight(d.height * (0.9 - layer * 0.2), height);
+          const y = height - h;
+          
+          if (i === 0) ctx.moveTo(d.x, y);
+          else ctx.lineTo(d.x, y);
+        });
+        ctx.stroke();
+      }
+      
+      // User's liquidity range - extends from bottom to "Available Balance" line
+      const x1 = priceToX(priceRange.min, width);
+      const x2 = priceToX(priceRange.max, width);
+      const rangeWidth = x2 - x1;
+      const maxAvailableY = 80; // Top = 100% available
+      const rangeHeight = height - maxAvailableY; // Goes from bottom to available line
+      
+      const gradient = ctx.createLinearGradient(x1, maxAvailableY, x1, height);
+      gradient.addColorStop(0, 'rgba(255, 100, 60, 0.25)');
+      gradient.addColorStop(1, 'rgba(255, 130, 80, 0.35)');
+      
+      // Apply dynamic glow effect from enhancer
+      if (enhancerActive) {
+        ctx.shadowColor = `rgba(255, 120, 80, ${glowIntensity})`;
+        ctx.shadowBlur = glowBlur;
+      }
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x1, maxAvailableY, rangeWidth, rangeHeight);
+      
+      // Reset shadow
+      if (enhancerActive) {
+        ctx.shadowBlur = 0;
+      }
+      
+      // Border lines (FULL HEIGHT) - with hover effect
+      [x1, x2].forEach((x, idx) => {
+        const handleType = idx === 0 ? 'left' : 'right';
+        const isHoveredLine = hovered === handleType;
+        const isDraggedLine = isDragging === handleType;
+        
+        ctx.strokeStyle = isDraggedLine ? 'rgba(20, 20, 20, 1.0)' : 
+                          isHoveredLine ? 'rgba(30, 30, 30, 0.9)' : 
+                          'rgba(40, 40, 40, 0.7)';
+        ctx.lineWidth = isDraggedLine ? 4 : isHoveredLine ? 3.5 : 3;
+        ctx.beginPath();
+        ctx.moveTo(x, 0); // Start from top
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      });
+      
+      // Draw reference lines
+      const minAvailableY = height - 80; // Bottom = 0%
+      const availableRange = minAvailableY - maxAvailableY;
+      const topPadding = 20;
+      const overflowRange = maxAvailableY - topPadding;
+      
+      // 100% line (green - available balance)
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+      ctx.setLineDash([8, 4]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, maxAvailableY);
+      ctx.lineTo(width, maxAvailableY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.7)';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.fillText('Available Balance', 10, maxAvailableY - 8);
+      
+      
+      // Deposit balance indicator (DRAGGABLE to adjust deposits)
+      const priceX = priceToX(currentPrice, width);
+      const isHoveredPrice = hovered === 'price';
+      const isDraggedPrice = isDragging === 'price';
+      
+      // Position mapping:
+      // 0-100% (0.0-1.0) → bottom to green "Available Balance" line
+      // >100% (>1.0) → green line to top (capped at 8px from top)
+      const percentOfAvailable = depositMultiplier;
+      
+      let priceY;
+      if (depositMultiplier <= 1.0) {
+        // 0-100%: Linear mapping from bottom to green line
+        priceY = minAvailableY - (depositMultiplier * availableRange);
+      } else {
+        // >100%: Logarithmic mapping from green line to top (capped at 8px padding)
+        const topPadding = 8; // Cap at 8px from top
+        const overflowRange = maxAvailableY - topPadding;
+        const excessMultiplier = depositMultiplier - 1.0;
+        const logScale = Math.log10(excessMultiplier + 1); // Smooth logarithmic curve
+        const maxLogValue = Math.log10(100); // Allows up to ~10,000% to be mapped
+        const overflowPercent = Math.min(1.0, logScale / maxLogValue);
+        priceY = Math.max(topPadding, maxAvailableY - (overflowPercent * overflowRange)); // Cap at top
+      }
+      
+      // Color changes based on whether we're within available balance
+      const isWithinBalance = depositMultiplier <= 1.0;
+      const ballColor = isWithinBalance ? 
+        { main: '#10b981', glow: 'rgba(16, 185, 129', name: 'green' } :  // Green when <= 100%
+        { main: '#ef4444', glow: 'rgba(239, 68, 68', name: 'red' };      // Red when > 100%
+      
+      // Glow (more intense when hovered/dragged)
+      const glowIntensity = isDraggedPrice ? 0.7 : isHoveredPrice ? 0.6 : 0.4;
+      const glowRadius = isDraggedPrice ? 60 : isHoveredPrice ? 55 : 50;
+      
+      const glow = ctx.createRadialGradient(priceX, priceY, 0, priceX, priceY, glowRadius);
+      glow.addColorStop(0, `${ballColor.glow}, ${glowIntensity})`);
+      glow.addColorStop(1, `${ballColor.glow}, 0)`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(priceX - glowRadius, priceY - glowRadius, glowRadius * 2, glowRadius * 2);
+      
+      // Ball (LARGER for better dragging)
+      const dotRadius = isDraggedPrice ? 18 : isHoveredPrice ? 16 : 14;
+      ctx.fillStyle = ballColor.main;
+      ctx.beginPath();
+      ctx.arc(priceX, priceY, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = isDraggedPrice ? 'white' : 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = isDraggedPrice ? 4 : 3;
+      ctx.stroke();
+      
+      // Dashed line from ball to bottom
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(priceX, priceY + dotRadius + 5);
+      ctx.lineTo(priceX, height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Cursor hint when hovering price dot (follows circle)
+      if (isHoveredPrice || isDraggedPrice) {
+        const percent = (depositMultiplier * 100).toFixed(0);
+        const statusText = isWithinBalance ? '' : ' (Exceeds available)';
+        const bgColor = isWithinBalance ? 'rgba(0, 0, 0, 0.85)' : 'rgba(239, 68, 68, 0.9)';
+        
+        ctx.fillStyle = bgColor;
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        const text = isDraggedPrice ? 
+          `↕️ ${percent}%${statusText}` : 
+          '↕️ Drag to adjust deposits';
+        const textWidth = ctx.measureText(text).width;
+        const tooltipY = priceY - 35;
+        ctx.fillRect(priceX - textWidth/2 - 8, tooltipY, textWidth + 16, 22);
+        ctx.fillStyle = 'white';
+        ctx.fillText(text, priceX - textWidth/2, tooltipY + 15);
+      }
+      
+      // Handles (only left and right) - drawn LAST so they're on top of everything
+      const handleY = 30; // Move down more for better visibility
+      
+      // DEBUG: Draw test rectangles to verify coordinates
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(10, 10, 50, 50); // Red square in top-left corner
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(x1 - 40, handleY, 80, 50); // Green rectangle where left handle should be
+      ctx.fillStyle = '#0000ff';
+      ctx.fillRect(x2 - 40, handleY, 80, 50); // Blue rectangle where right handle should be
+      
+      // Make handles MUCH larger and more visible
+      drawHandle(x1, handleY, 'left', 80); // Make MUCH wider
+      drawHandle(x2, handleY, 'right', 80); // Make MUCH wider
+      
+      // CRITICAL: Ensure shadow is completely reset after drawing handles
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Update UI
+      const balance = calculateBalance();
+      const apr = calculateAPR();
+      const isInRange = currentPrice >= priceRange.min && currentPrice <= priceRange.max;
+      
+      // Balance as percentage (depositMultiplier * 100 = %)
+      const balancePercent = (depositMultiplier * 100).toFixed(0) + '%';
+      const balanceUsd = '$' + balance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      
+      document.getElementById('minPrice').textContent = priceRange.min.toFixed(2);
+      document.getElementById('minPriceUsd').textContent = '$' + (priceRange.min).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      
+      document.getElementById('balancePercent').textContent = balancePercent;
+      document.getElementById('balanceUsd').textContent = balanceUsd;
+      
+      document.getElementById('maxPrice').textContent = priceRange.max.toFixed(2);
+      document.getElementById('maxPriceUsd').textContent = '$' + (priceRange.max).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      
+      document.getElementById('apr').textContent = apr.toFixed(2) + '%';
+      
+      // Update right-side inputs
+      updateInputs();
+      
+      // Update APR indicator
+      const indicator = document.getElementById('aprIndicator');
+      const status = document.getElementById('aprStatus');
+      if (isInRange) {
+        indicator.classList.add('active');
+        status.textContent = '✓ In range';
+        status.style.color = '#10b981';
+      } else {
+        indicator.classList.remove('active');
+        status.textContent = '○ Out of range';
+        status.style.color = '#666';
+      }
+      
+      // Update cursor
+      if (hovered === 'price') {
+        canvas.style.cursor = 'ns-resize'; // vertical resize for price
+      } else if (hovered === 'left' || hovered === 'right') {
+        canvas.style.cursor = 'ew-resize'; // horizontal resize for handles
+      } else if (isDragging) {
+        canvas.style.cursor = isDragging === 'price' ? 'ns-resize' : 'ew-resize';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    }
+    
+    // Get mouse position
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+    
+    // Mouse handlers
+    canvas.addEventListener('mousedown', (e) => {
+      const { x, y } = getMousePos(e);
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      const x1 = priceToX(priceRange.min, width);
+      const x2 = priceToX(priceRange.max, width);
+      const priceX = priceToX(currentPrice, width);
+      const maxAvailableY = 80;
+      const minAvailableY = height - 80;
+      const priceY = minAvailableY - (depositMultiplier * (minAvailableY - maxAvailableY));
+      
+      // Check price dot first (priority) - DRAGGABLE anywhere on the circle
+      if (Math.sqrt((x - priceX) ** 2 + (y - priceY) ** 2) < 25) {
+        isDragging = 'price';
+        dragStartY = y;
+        dragStartMultiplier = depositMultiplier;
+        return;
+      }
+      
+      // Check handle boxes at the top (handleY = 30, handleWidth = 80, handleHeight = 50)
+      const handleY = 30;
+      const handleWidth = 80;
+      const handleHeight = 50;
+      
+      // Check left handle box
+      if (x >= x1 - handleWidth/2 && x <= x1 + handleWidth/2 && 
+          y >= handleY && y <= handleY + handleHeight) {
+        isDragging = 'left';
+        return;
+      }
+      
+      // Check right handle box
+      if (x >= x2 - handleWidth/2 && x <= x2 + handleWidth/2 && 
+          y >= handleY && y <= handleY + handleHeight) {
+        isDragging = 'right';
+        return;
+      }
+      
+      // Check vertical lines - DRAGGABLE anywhere along the full height
+      const lineHitTolerance = 15; // Pixels on either side of the line
+      if (Math.abs(x - x1) < lineHitTolerance) {
+        isDragging = 'left';
+        return;
+      }
+      if (Math.abs(x - x2) < lineHitTolerance) {
+        isDragging = 'right';
+        return;
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      const { x, y } = getMousePos(e);
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      const x1 = priceToX(priceRange.min, width);
+      const x2 = priceToX(priceRange.max, width);
+      const priceX = priceToX(currentPrice, width);
+      const maxAvailableY = 80;
+      const minAvailableY = height - 80;
+      const availableRange = minAvailableY - maxAvailableY;
+      const lineHitTolerance = 15;
+      
+      // Calculate priceY using same mapping as render
+      let priceY;
+      if (depositMultiplier <= 1.0) {
+        priceY = minAvailableY - (depositMultiplier * availableRange);
+      } else {
+        const topPadding = 8; // Cap at 8px from top
+        const overflowRange = maxAvailableY - topPadding;
+        const excessMultiplier = depositMultiplier - 1.0;
+        const logScale = Math.log10(excessMultiplier + 1);
+        const maxLogValue = Math.log10(100);
+        const overflowPercent = Math.min(1.0, logScale / maxLogValue);
+        priceY = Math.max(topPadding, maxAvailableY - (overflowPercent * overflowRange)); // Cap at top
+      }
+      
+      // Update hover state
+      if (!isDragging) {
+        if (Math.sqrt((x - priceX) ** 2 + (y - priceY) ** 2) < 25) {
+          hovered = 'price';
+        } else {
+          // Check handle boxes at the top first
+          const handleY = 30;
+          const handleWidth = 80;
+          const handleHeight = 50;
+          
+          if (x >= x1 - handleWidth/2 && x <= x1 + handleWidth/2 && 
+              y >= handleY && y <= handleY + handleHeight) {
+            hovered = 'left';
+          } else if (x >= x2 - handleWidth/2 && x <= x2 + handleWidth/2 && 
+                     y >= handleY && y <= handleY + handleHeight) {
+            hovered = 'right';
+          } else if (Math.abs(x - x1) < lineHitTolerance) {
+            hovered = 'left';
+          } else if (Math.abs(x - x2) < lineHitTolerance) {
+            hovered = 'right';
+          } else {
+            hovered = null;
+          }
+        }
+      }
+      
+      // Handle dragging
+      if (isDragging === 'left') {
+        const newPrice = Math.max(viewport.priceMin, Math.min(priceRange.max - 50, xToPrice(x, width)));
+        priceRange.min = Math.round(newPrice * 100) / 100;
+        sendStateUpdate();
+      } else if (isDragging === 'right') {
+        const newPrice = Math.min(viewport.priceMax, Math.max(priceRange.min + 50, xToPrice(x, width)));
+        priceRange.max = Math.round(newPrice * 100) / 100;
+        sendStateUpdate();
+      } else if (isDragging === 'price') {
+        // Vertical drag to adjust deposit multiplier
+        // Up = increase (negative deltaY), Down = decrease (positive deltaY)
+        const deltaY = y - dragStartY;
+        const sensitivity = 0.008; // More sensitive for better feedback
+        const change = -deltaY * sensitivity; // Negative because up = increase
+        const newMultiplier = Math.max(0.01, dragStartMultiplier + change); // No upper limit!
+        depositMultiplier = newMultiplier;
+        sendStateUpdate();
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      isDragging = null;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      isDragging = null;
+      hovered = null;
+    });
+    
+    // Chart enhancer - smooth animations and polish
+    let enhancerActive = false;
+    let glowIntensity = 0;
+    let glowBlur = 0;
+    
+    function initChartEnhancer() {
+      if (enhancerActive) return;
+      enhancerActive = true;
+      let displayedAPR = calculateAPR();
+      let frame = 0;
+      
+      function calculateGlow() {
+        const apr = calculateAPR();
+        const heat = Math.min(1, apr / 350);
+        const glow = 4 + 8 * Math.sin(frame * 0.02);
+        glowIntensity = 0.15 + heat * 0.2;
+        glowBlur = glow * heat;
+      }
+      
+      function shimmerGradient(width) {
+        const shift = Math.sin(frame * 0.015) * 60;
+        const g = ctx.createLinearGradient(shift, 0, width + shift, 0);
+        g.addColorStop(0, 'rgba(255,130,80,0.25)');
+        g.addColorStop(1, 'rgba(255,100,60,0.25)');
+        return g;
+      }
+      
+      function enhanceAnimate() {
+        frame++;
+        // Smooth APR number animation
+        const targetAPR = calculateAPR();
+        displayedAPR += (targetAPR - displayedAPR) * 0.08;
+        const aprText = document.getElementById('apr');
+        if (aprText) aprText.textContent = displayedAPR.toFixed(2) + '%';
+        
+        // Calculate glow effect (stored for render function)
+        calculateGlow();
+        
+        // Update APR indicator glow intensity
+        const indicator = document.getElementById('aprIndicator');
+        if (indicator) {
+          const glowLevel = Math.min(1, targetAPR / 350);
+          indicator.style.boxShadow = `0 0 ${6 + glowLevel * 10}px rgba(16,185,129,${0.4 + glowLevel * 0.4})`;
+        }
+        
+        requestAnimationFrame(enhanceAnimate);
+      }
+      
+      enhanceAnimate();
+    }
+    
+    // Animation loop
+    function animate() {
+      render();
+      requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    // Start enhancer after initial render
+    setTimeout(() => initChartEnhancer(), 100);
+  </script>
+</body>
+</html>
+
