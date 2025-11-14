@@ -1,0 +1,3 @@
+export default {
+p1a319000: "M10 5V10M10 10V15M10 10H5M10 10H15",
+}
